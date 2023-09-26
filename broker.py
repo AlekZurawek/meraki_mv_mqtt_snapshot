@@ -5,11 +5,18 @@ import requests
 import time
 from datetime import date
 
-# Define the log file path
+# Define the log file path and the last time the API call was made
 log_file_path = "file.log"
 last_api_call_time = 0
 
 def generate_and_download_snapshot(api_key, serial):
+    global last_api_call_time  # use the global variable to track the last API call time
+
+    current_time = time.time()
+    if current_time - last_api_call_time < 60:
+        print("Waiting for 60 seconds before making another API call.")
+        return
+
     # Step 1: Generate Snapshot
     url = f"https://api.meraki.com/api/v1/devices/{serial}/camera/generateSnapshot"
     headers = {
@@ -33,8 +40,8 @@ def generate_and_download_snapshot(api_key, serial):
                 print(f"Snapshot URL: {snapshot_url}")
                 time.sleep(5)
                 
-                # Generate the image filename with today's date and serial
-                imageName = f"{date.today().strftime('%d%m%Y')}-{serial}.jpg"
+                # Generate the image filename with today's date, serial, and seconds
+                imageName = f"{date.today().strftime('%d%m%Y_%H%M%S')}-{serial}.jpg"
 
                 image_response = requests.get(snapshot_url)
                 if image_response.status_code == 200:
@@ -44,6 +51,7 @@ def generate_and_download_snapshot(api_key, serial):
                 else:
                     print(f"Failed to download image. Status Code: {image_response.status_code}")
 
+                last_api_call_time = current_time  # Update the last API call time
                 break
             else:
                 print("Snapshot URL not found in response content. Retrying in 5 seconds...")
@@ -68,7 +76,7 @@ def on_message(client, userdata, message):
             person = data["objects"][0]
             if person["type"] == "person" and person["confidence"] > 70:
                 serial = message.topic.split("/")[-2]  # Corrected the extraction
-                api_key = 'xxxxx'
+                api_key = 'API KEY GOES HERE'
                 generate_and_download_snapshot(api_key, serial)
     except json.JSONDecodeError as e:
         print(f"Error decoding JSON: {e}")
